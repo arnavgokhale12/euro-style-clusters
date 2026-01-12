@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv/
+.env/
+
+# Environment variables / secrets
+.env
+.env.local
+.env.*
+*.env
+
+# Streamlit cache
+.streamlit/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Data files (download via Kaggle API)
+data/*.sqlite
+data/*.db
+data/*.csv
+!data/.gitkeep
+
+# Reports (generated files)
+reports/*.pdf
+reports/*.html
+reports/figures/*.png
+reports/figures/*.jpg
+reports/figures/*.svg
+!reports/.gitkeep
+!reports/figures/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code local config
+.claude/
