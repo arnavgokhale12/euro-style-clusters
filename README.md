@@ -1,89 +1,114 @@
-# European Soccer Style Clustering
+# European Soccer Style Clustering & MoneyBall Analysis
 
-## Project Description
+Analyze playing styles and transfer market efficiency for Europe's top 5 leagues (Premier League, La Liga, Serie A, Bundesliga, Ligue 1).
 
-This project clusters European club teams from the top 5 leagues (Premier League, La Liga, Serie A, Bundesliga, Ligue 1) into distinct styles of play using match and season data from the Kaggle European Soccer Database.
+## Features
 
-The analysis aggregates team-season level features across multiple dimensions:
-- **Attack**: Goals scored, shots, assists, attacking style
-- **Possession**: Ball possession, pass completion, build-up play
-- **Defense**: Goals conceded, tackles, interceptions, defensive shape
-- **Game State**: Performance when leading/trailing, set pieces, transitions
+### Style Clustering (2008-2024)
+Clusters teams into distinct playing styles using match statistics:
+- **Full Features (2008-2016)**: possession, shots, crosses, corners, fouls
+- **Reduced Features (2016-2024)**: shots, corners, fouls
 
-Using unsupervised learning (k-means and hierarchical clustering), we identify distinct playing styles and visualize the clusters through dimensionality reduction and comparative analyses.
+Identifies styles like "Possession Attackers", "Direct Play", "Ball Controllers", etc.
 
-## Dataset
+### MoneyBall Analysis (2015-2026)
+Analyzes transfer market efficiency using TransferMarkt data:
+- Squad value vs transfer spending
+- Smart spenders (best value for money)
+- Big spenders (highest spending clubs)
+- Efficiency rankings and ROI metrics
 
-**Source**: [Kaggle European Soccer Database](https://www.kaggle.com/datasets/hugomathien/soccer)
+### Interactive Dashboard
+- Time period selector (2008-2016, 2016-2024, or All Years)
+- Cluster visualizations with PCA projections
+- Team search with style history
+- Feature highlighting showing why teams belong to clusters
+- Financial profiles integrated with style data
 
-**Format**: SQLite database containing:
-- Match results and statistics
-- Team and player information
-- League and country data
-- Attributes and ratings
+## Quick Start
 
-**Coverage**: Top 5 European leagues (2008-2016)
-- English Premier League
-- Spanish La Liga
-- Italian Serie A
-- German Bundesliga
-- French Ligue 1
+```bash
+# Install dependencies
+pip install -r requirements.txt
 
-**Expected File Location**: `data/database.sqlite`
+# Download the Kaggle database (2008-2016 data)
+# Place at: data/database.sqlite
+# Source: https://www.kaggle.com/datasets/hugomathien/soccer
 
-## Pipeline Overview
+# Download transfer market data
+python setup_transfer_data.py
 
-1. **Data Loading** (`src/data_loader.py`)
-   - Connect to SQLite database
-   - Extract match and team data
-   - Filter top 5 leagues
+# Download post-2016 match data (optional)
+python setup_football_data.py
 
-2. **Feature Engineering** (`src/feature_engineering.py`)
-   - Aggregate match-level stats to team-season level
-   - Compute attack, possession, defense, and game state features
-   - Normalize features for clustering
+# Run the dashboard
+streamlit run app.py
+```
 
-3. **Clustering** (`src/clustering.py`)
-   - K-means clustering with optimal k selection
-   - Hierarchical clustering (ward linkage)
-   - Cluster evaluation metrics
+## Data Sources
 
-4. **Visualization** (`src/visualization.py`)
-   - PCA/t-SNE for dimensionality reduction
-   - Cluster plots and comparisons
-   - Feature importance analysis
+| Source | Period | Data |
+|--------|--------|------|
+| [Kaggle European Soccer](https://www.kaggle.com/datasets/hugomathien/soccer) | 2008-2016 | Match stats, player ratings |
+| [football-data.co.uk](https://www.football-data.co.uk/) | 2016-2024 | Match results, shots, corners, fouls |
+| [TransferMarkt](https://github.com/salimt/football-datasets) | 2015-2026 | Transfer fees, squad valuations |
 
-5. **Reporting** (`notebooks/`)
-   - Data exploration notebook
-   - Analysis and results notebooks
-   - Final report generation
-
-## Repository Structure
+## Project Structure
 
 ```
 euro-style-clusters/
-├── data/              # SQLite database and processed data
-├── src/               # Python source code
-│   ├── __init__.py
-│   ├── config.py      # Configuration and constants
-│   ├── data_loader.py # Data loading functions
-│   ├── feature_engineering.py # Feature aggregation
-│   ├── clustering.py  # Clustering algorithms
-│   ├── visualization.py # Plotting functions
-│   └── utils.py       # Utility functions
-├── notebooks/         # Jupyter notebooks for analysis
-│   └── 01_explore_data.ipynb
-└── reports/           # Generated reports and figures
+├── app.py                      # Streamlit dashboard
+├── main.py                     # CLI analysis
+├── setup_transfer_data.py      # Download TransferMarkt data
+├── setup_football_data.py      # Download football-data.co.uk
+├── src/
+│   ├── config.py               # Configuration constants
+│   ├── data_loader.py          # Kaggle SQLite loader
+│   ├── feature_engineering.py  # Feature aggregation & normalization
+│   ├── football_data_loader.py # football-data.co.uk loader
+│   ├── transfer_data.py        # TransferMarkt data processing
+│   ├── team_mapping.py         # Cross-dataset team matching
+│   ├── clustering.py           # K-means/hierarchical clustering
+│   └── visualization.py        # Plotting functions
+├── notebooks/
+│   └── 01_explore_data.ipynb   # Data exploration
+├── data/                       # Downloaded data (gitignored)
+└── reports/                    # Generated outputs
 ```
 
-## Setup
+## Style Features
 
-1. Place the Kaggle SQLite database in `data/database.sqlite`
-2. Install dependencies: `pip install -r requirements.txt`
-3. Run notebooks in order: `01_explore_data.ipynb`, etc.
+**Full Features (Kaggle 2008-2016)**:
+- `avg_possession` - Ball control preference
+- `avg_shots` - Attacking intent
+- `avg_crosses` - Width of play
+- `avg_corners` - Set piece focus
+- `avg_fouls` - Physicality
 
-## Outputs
+**Reduced Features (football-data.co.uk 2016-2024)**:
+- `avg_shots`, `avg_corners`, `avg_fouls`
+- (Possession/crosses not available from free sources)
 
-- Cluster assignments for each team-season
-- Visualizations of playing styles
-- Short report summarizing findings (in `reports/`)
+## Dashboard Tabs
+
+1. **Overview** - PCA cluster visualization, radar charts
+2. **Team Search** - Find any team's style history + financial profile
+3. **Timeline** - Track team evolution over seasons
+4. **Leagues** - Compare styles across leagues
+5. **MoneyBall** - Transfer efficiency rankings
+6. **Export** - Download cluster assignments
+
+## Example Insights
+
+- Athletic Bilbao achieves 4.2x value efficiency due to their Basque-only policy
+- "Possession Attackers" style has highest championship count
+- Post-2016 Premier League shows increased shot volume across all teams
+
+## Requirements
+
+- Python 3.8+
+- See `requirements.txt` for packages
+
+## License
+
+MIT
