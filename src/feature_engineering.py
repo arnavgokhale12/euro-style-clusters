@@ -25,6 +25,13 @@ STYLE_FEATURES = [
     "avg_fouls",           # Aggression / physicality
 ]
 
+# REDUCED STYLE FEATURES: For post-2016 data where possession/crosses unavailable
+STYLE_FEATURES_REDUCED = [
+    "avg_shots",           # Shot frequency / attacking intent
+    "avg_corners",         # Set piece focus
+    "avg_fouls",           # Aggression / physicality
+]
+
 # QUALITY FEATURES: Describe "how well" a team plays (analyze after clustering)
 QUALITY_FEATURES = [
     "win_rate",            # Primary success metric

@@ -30,11 +30,12 @@ ENV/
 *.swo
 *~
 
-# Data files (download via Kaggle API)
+# Data files (download via setup scripts)
 data/*.sqlite
 data/*.db
 data/*.csv
 data/transfermarkt/
+data/football_data/
 !data/.gitkeep
 
 # Reports (generated files)
