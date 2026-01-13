@@ -2,6 +2,20 @@
 
 Analyze playing styles and transfer market efficiency for Europe's top 5 leagues (Premier League, La Liga, Serie A, Bundesliga, Ligue 1).
 
+## Screenshots
+
+### Cluster Overview
+![Cluster Overview](screenshots/overview.png)
+*PCA visualization of playing styles with cluster summaries*
+
+### Team Search
+![Team Search](screenshots/team-search.png)
+*Search any team to see their style history and why they belong to their cluster*
+
+### MoneyBall Analysis
+![MoneyBall](screenshots/moneyball.png)
+*Transfer market efficiency - smart spenders vs big spenders*
+
 ## Features
 
 ### Style Clustering (2008-2024)
