@@ -34,6 +34,7 @@ ENV/
 data/*.sqlite
 data/*.db
 data/*.csv
+data/transfermarkt/
 !data/.gitkeep
 
 # Reports (generated files)

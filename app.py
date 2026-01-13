@@ -21,6 +21,11 @@ from src.feature_engineering import (
     STYLE_FEATURES, QUALITY_FEATURES
 )
 from src.config import RANDOM_STATE, TOP_5_LEAGUES
+from src.transfer_data import (
+    download_transfer_data, load_transfer_data, calculate_team_financials,
+    get_team_efficiency_ranking, get_smart_spenders, get_big_spenders,
+    format_currency, TRANSFER_DATA_DIR
+)
 
 st.set_page_config(page_title="Euro Soccer Clusters", layout="wide")
 
@@ -321,9 +326,43 @@ def show_setup_instructions():
     """)
 
 
+@st.cache_data
+def load_transfer_data_cached():
+    """Load and process transfer market data."""
+    try:
+        if not TRANSFER_DATA_DIR.exists():
+            download_transfer_data()
+        data = load_transfer_data()
+        return data
+    except Exception as e:
+        return None
+
+
+@st.cache_data
+def calculate_financials_cached(season_start: int, season_end: int):
+    """Calculate team financials with caching."""
+    try:
+        data = load_transfer_data_cached()
+        if data is None:
+            return None
+
+        financials = calculate_team_financials(
+            transfers_df=data['transfers'],
+            valuations_df=data['valuations'],
+            players_df=data['players'],
+            clubs_df=data['clubs'],
+            season_start=season_start,
+            season_end=season_end
+        )
+        return financials
+    except Exception as e:
+        st.error(f"Error calculating financials: {e}")
+        return None
+
+
 def main():
-    st.title("⚽ European Soccer Style Clustering")
-    st.markdown("*Discover playing styles across Europe's top 5 leagues (2008-2016)*")
+    st.title("⚽ European Soccer Analytics")
+    st.markdown("*Style clustering (2008-2016) + MoneyBall analysis (2020-2026)*")
 
     # Sidebar
     st.sidebar.header("Data")
@@ -579,8 +618,8 @@ def main():
                         st.dataframe(champions[["Team", "Season", "League"]].head(5), hide_index=True, use_container_width=True)
 
     # === TABS ===
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📊 Overview", "🔍 Team Search", "📈 Timeline", "🌍 Leagues", "💾 Export"
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "📊 Overview", "🔍 Team Search", "📈 Timeline", "🌍 Leagues", "💰 MoneyBall", "💾 Export"
     ])
 
     # === TAB 1: OVERVIEW ===
@@ -818,8 +857,188 @@ def main():
         fig.update_layout(height=300)
         st.plotly_chart(fig, use_container_width=True)
 
-    # === TAB 5: EXPORT ===
+    # === TAB 5: MONEYBALL ===
     with tab5:
+        st.subheader("💰 MoneyBall Analysis")
+        st.markdown("*Which teams are smart with money vs just throwing cash around?*")
+
+        # Year range filter for transfer data
+        st.markdown("---")
+        col1, col2 = st.columns(2)
+        with col1:
+            mb_year_start = st.selectbox("From Year", options=list(range(2015, 2027)), index=5, key="mb_start")
+        with col2:
+            mb_year_end = st.selectbox("To Year", options=list(range(2015, 2027)), index=11, key="mb_end")
+
+        if mb_year_start > mb_year_end:
+            st.warning("Start year must be before end year")
+        else:
+            # Load transfer data
+            with st.spinner("Loading transfer market data..."):
+                financials = calculate_financials_cached(mb_year_start, mb_year_end)
+
+            if financials is None or len(financials) == 0:
+                st.warning("Transfer data not available. Run `python setup_transfer_data.py` to download it.")
+                st.code("python setup_transfer_data.py", language="bash")
+            else:
+                # Summary metrics
+                st.markdown("### Key Metrics")
+                m1, m2, m3, m4 = st.columns(4)
+
+                total_value = financials['squad_value'].sum()
+                total_spent = financials['total_spent'].sum()
+                avg_efficiency = financials[financials['value_efficiency'].notna()]['value_efficiency'].mean()
+
+                with m1:
+                    st.metric("Total Squad Values", format_currency(total_value))
+                with m2:
+                    st.metric("Total Spending", format_currency(total_spent))
+                with m3:
+                    st.metric("Avg Efficiency", f"{avg_efficiency:.2f}x" if not pd.isna(avg_efficiency) else "-")
+                with m4:
+                    st.metric("Teams Analyzed", len(financials))
+
+                st.markdown("---")
+
+                # Two column layout for main analysis
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.markdown("### 🎯 Smart Spenders (Best Value/Cost)")
+                    st.caption("Teams getting the most value for their money")
+
+                    smart = get_smart_spenders(financials, top_n=15)
+                    if len(smart) > 0:
+                        display_smart = smart[['club_name', 'squad_value', 'total_spent', 'value_vs_cost', 'value_efficiency']].copy()
+                        display_smart['squad_value'] = display_smart['squad_value'].apply(lambda x: format_currency(x))
+                        display_smart['total_spent'] = display_smart['total_spent'].apply(lambda x: format_currency(x))
+                        display_smart['value_vs_cost'] = display_smart['value_vs_cost'].apply(lambda x: format_currency(x))
+                        display_smart['value_efficiency'] = display_smart['value_efficiency'].apply(lambda x: f"{x:.2f}x" if pd.notna(x) else "-")
+                        display_smart.columns = ['Club', 'Squad Value', 'Spent', 'Value - Cost', 'Efficiency']
+                        st.dataframe(display_smart, hide_index=True, use_container_width=True)
+
+                        # Value vs Cost scatter for smart spenders
+                        fig = px.scatter(
+                            smart,
+                            x='total_spent',
+                            y='squad_value',
+                            text='club_name',
+                            title='Squad Value vs Transfer Spending',
+                            labels={'total_spent': 'Total Spent (€)', 'squad_value': 'Squad Value (€)'}
+                        )
+                        fig.add_trace(go.Scatter(
+                            x=[0, smart['total_spent'].max()],
+                            y=[0, smart['total_spent'].max()],
+                            mode='lines',
+                            name='Break Even (1:1)',
+                            line=dict(dash='dash', color='gray')
+                        ))
+                        fig.update_traces(textposition='top center', marker=dict(size=12, color='#2ecc71'))
+                        fig.update_layout(height=400, showlegend=True)
+                        st.plotly_chart(fig, use_container_width=True)
+
+                with col2:
+                    st.markdown("### 💸 Biggest Spenders")
+                    st.caption("Teams that have spent the most on transfers")
+
+                    big = get_big_spenders(financials, top_n=15)
+                    if len(big) > 0:
+                        display_big = big[['club_name', 'total_spent', 'total_received', 'net_spend', 'squad_value']].copy()
+                        display_big['total_spent'] = display_big['total_spent'].apply(lambda x: format_currency(x))
+                        display_big['total_received'] = display_big['total_received'].apply(lambda x: format_currency(x))
+                        display_big['net_spend'] = display_big['net_spend'].apply(lambda x: format_currency(x))
+                        display_big['squad_value'] = display_big['squad_value'].apply(lambda x: format_currency(x))
+                        display_big.columns = ['Club', 'Spent', 'Received', 'Net Spend', 'Squad Value']
+                        st.dataframe(display_big, hide_index=True, use_container_width=True)
+
+                        # Net spend bar chart
+                        fig2 = px.bar(
+                            big.head(10),
+                            x='club_name',
+                            y='net_spend',
+                            title='Net Transfer Spend (Top 10)',
+                            color='net_spend',
+                            color_continuous_scale=['#27ae60', '#f1c40f', '#e74c3c'],
+                            labels={'club_name': 'Club', 'net_spend': 'Net Spend (€)'}
+                        )
+                        fig2.update_layout(height=400, xaxis_tickangle=-45)
+                        st.plotly_chart(fig2, use_container_width=True)
+
+                st.markdown("---")
+
+                # Efficiency ranking
+                st.markdown("### 📊 Value Efficiency Rankings")
+                st.caption("Efficiency = Squad Value / Total Spent. Higher = better ROI on transfers.")
+
+                efficient = get_team_efficiency_ranking(financials)
+                if len(efficient) > 0:
+                    # Top 10 vs Bottom 10
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+                        st.markdown("**🏆 Most Efficient (Top 10)**")
+                        top10 = efficient.head(10)[['club_name', 'value_efficiency', 'efficiency_category']].copy()
+                        top10['value_efficiency'] = top10['value_efficiency'].apply(lambda x: f"{x:.2f}x")
+                        top10.columns = ['Club', 'Efficiency', 'Category']
+                        st.dataframe(top10, hide_index=True, use_container_width=True)
+
+                    with col2:
+                        st.markdown("**📉 Least Efficient (Bottom 10)**")
+                        bottom10 = efficient.tail(10)[['club_name', 'value_efficiency', 'efficiency_category']].copy()
+                        bottom10 = bottom10.sort_values('value_efficiency', ascending=True)
+                        bottom10['value_efficiency'] = bottom10['value_efficiency'].apply(lambda x: f"{x:.2f}x")
+                        bottom10.columns = ['Club', 'Efficiency', 'Category']
+                        st.dataframe(bottom10, hide_index=True, use_container_width=True)
+
+                    # Efficiency distribution
+                    fig3 = px.histogram(
+                        efficient,
+                        x='value_efficiency',
+                        nbins=30,
+                        title='Distribution of Value Efficiency Across Clubs',
+                        labels={'value_efficiency': 'Value Efficiency (Squad Value / Spent)'}
+                    )
+                    fig3.add_vline(x=1.0, line_dash="dash", line_color="red",
+                                  annotation_text="Break Even (1.0)")
+                    fig3.update_layout(height=350)
+                    st.plotly_chart(fig3, use_container_width=True)
+
+                # Average age analysis if available
+                if 'avg_player_age' in financials.columns and financials['avg_player_age'].notna().any():
+                    st.markdown("---")
+                    st.markdown("### 👶 Squad Age Analysis")
+
+                    age_data = financials[financials['avg_player_age'].notna()].copy()
+                    if len(age_data) > 0:
+                        col1, col2 = st.columns(2)
+
+                        with col1:
+                            st.markdown("**Youngest Squads**")
+                            youngest = age_data.nsmallest(10, 'avg_player_age')[['club_name', 'avg_player_age', 'squad_value']].copy()
+                            youngest['avg_player_age'] = youngest['avg_player_age'].apply(lambda x: f"{x:.1f} years")
+                            youngest['squad_value'] = youngest['squad_value'].apply(lambda x: format_currency(x))
+                            youngest.columns = ['Club', 'Avg Age', 'Squad Value']
+                            st.dataframe(youngest, hide_index=True, use_container_width=True)
+
+                        with col2:
+                            st.markdown("**Oldest Squads**")
+                            oldest = age_data.nlargest(10, 'avg_player_age')[['club_name', 'avg_player_age', 'squad_value']].copy()
+                            oldest['avg_player_age'] = oldest['avg_player_age'].apply(lambda x: f"{x:.1f} years")
+                            oldest['squad_value'] = oldest['squad_value'].apply(lambda x: format_currency(x))
+                            oldest.columns = ['Club', 'Avg Age', 'Squad Value']
+                            st.dataframe(oldest, hide_index=True, use_container_width=True)
+
+                # Export financial data
+                st.markdown("---")
+                st.download_button(
+                    "📥 Download Financial Data (CSV)",
+                    financials.to_csv(index=False),
+                    "team_financials.csv",
+                    "text/csv"
+                )
+
+    # === TAB 6: EXPORT ===
+    with tab6:
         st.subheader("💾 Export Data")
 
         # Include both style and quality features in export

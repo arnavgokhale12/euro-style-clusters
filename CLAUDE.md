@@ -4,7 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This project clusters European soccer teams from the top 5 leagues (Premier League, La Liga, Serie A, Bundesliga, Ligue 1) into distinct playing styles using the Kaggle European Soccer Database (2008-2016). It uses unsupervised learning (k-means and hierarchical clustering) on team-season aggregated features.
+This project provides two main analyses of European soccer teams from the top 5 leagues (Premier League, La Liga, Serie A, Bundesliga, Ligue 1):
+
+1. **Style Clustering (2008-2016)**: Clusters teams into playing styles using the Kaggle European Soccer Database with k-means/hierarchical clustering on match statistics.
+
+2. **MoneyBall Analysis (2015-2026)**: Analyzes transfer market efficiency using TransferMarkt data - showing which teams get the best value for their spending vs those just throwing cash around.
 
 ## Setup
 
@@ -12,7 +16,14 @@ This project clusters European soccer teams from the top 5 leagues (Premier Leag
 pip install -r requirements.txt
 ```
 
+**For Style Clustering:**
 The SQLite database must be placed at `data/database.sqlite` (download from Kaggle: https://www.kaggle.com/datasets/hugomathien/soccer).
+
+**For MoneyBall Analysis:**
+```bash
+python setup_transfer_data.py
+```
+This downloads transfer market data from [salimt/football-datasets](https://github.com/salimt/football-datasets) to `data/transfermarkt/`.
 
 ## Running the Project
 
@@ -20,7 +31,11 @@ The SQLite database must be placed at `data/database.sqlite` (download from Kagg
 ```bash
 streamlit run app.py
 ```
-Features: cluster slider, league/season filters, team search, interactive plots
+Features:
+- Style clustering with adjustable k (3-8 clusters)
+- League/season filters
+- Team search and timeline views
+- **MoneyBall tab**: Squad value vs cost analysis, efficiency rankings, net spend, ROI metrics
 
 **CLI Analysis:**
 ```bash
@@ -36,6 +51,8 @@ jupyter notebook notebooks/01_explore_data.ipynb
 ## Architecture
 
 The codebase follows a modular pipeline architecture:
+
+### Style Clustering Pipeline
 
 1. **`src/data_loader.py`** - SQLite database connection and data extraction. Filters matches by league IDs defined in config.
 
@@ -54,6 +71,17 @@ The codebase follows a modular pipeline architecture:
    - `FEATURE_GROUPS`: Feature category definitions
    - `K_MEANS_RANGE`: k values to test (2-10)
    - `RANDOM_STATE`: 42 for reproducibility
+
+### MoneyBall Pipeline
+
+6. **`src/transfer_data.py`** - Transfer market data processing:
+   - Downloads data from GitHub (salimt/football-datasets)
+   - Parses transfer fees and market valuations
+   - Calculates team financials: squad value, total spent, net spend
+   - Computes efficiency metrics: value_efficiency = squad_value / total_spent
+   - Key functions: `calculate_team_financials()`, `get_smart_spenders()`, `get_big_spenders()`
+
+7. **`setup_transfer_data.py`** - One-time setup script to download TransferMarkt data
 
 ## Key Implementation Notes
 
